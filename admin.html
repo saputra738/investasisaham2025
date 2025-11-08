@@ -21,6 +21,7 @@ button{cursor:pointer;font-weight:bold;}
 </style>
 </head>
 <body>
+
 <div class="container">
 <h1>Admin Panel</h1>
 
@@ -63,11 +64,13 @@ const firebaseConfig = {
   appId: "1:1068578641763:web:3832c9485c5092df3b6556",
   measurementId: "G-PF9N37F8V9"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const usersRef = db.ref('users');
 
+// ===================
+// INISIALISASI
+// ===================
 let users = {};
 const userSelect = document.getElementById('userSelect');
 const blockSelect = document.getElementById('blockUserSelect');
@@ -75,46 +78,49 @@ const deleteSelect = document.getElementById('deleteUserSelect');
 const reloadTrans = document.getElementById('reloadTransSelect');
 const withdrawTransSelect = document.getElementById('withdrawTransSelect');
 
-// ===================
-// LISTENER REALTIME
-// ===================
+// ambil data realtime
 usersRef.on('value', snapshot => {
   users = snapshot.val() || {};
   populateUsers();
 });
 
-// ===================
-// HELPERS
-// ===================
+// render dropdown & transaksi
 function populateUsers(){
   userSelect.innerHTML = "";
   blockSelect.innerHTML = "";
   deleteSelect.innerHTML = "";
   reloadTrans.innerHTML = "";
   withdrawTransSelect.innerHTML = "";
+
   Object.keys(users).forEach(u=>{
-    let opt1 = document.createElement('option'); opt1.value=u; opt1.text=u; userSelect.appendChild(opt1);
+    let opt = document.createElement('option'); opt.value=u; opt.text=u; userSelect.appendChild(opt);
     let opt2 = document.createElement('option'); opt2.value=u; opt2.text=u; blockSelect.appendChild(opt2);
     let opt3 = document.createElement('option'); opt3.value=u; opt3.text=u; deleteSelect.appendChild(opt3);
 
-    // Isi ulang proses
+    // isi ulang
     (users[u].reloadHistory||[]).forEach((r,i)=>{
       if(r.status==="Proses"){
-        let optR = document.createElement('option'); optR.value=u+'_'+i; optR.text=u+" - Rp "+r.amount.toLocaleString('id-ID'); reloadTrans.appendChild(optR);
+        let optR = document.createElement('option');
+        optR.value = u+'_'+i;
+        optR.text = u+" - Rp "+r.amount.toLocaleString('id-ID');
+        reloadTrans.appendChild(optR);
       }
     });
 
-    // Penarikan proses
+    // penarikan
     (users[u].withdrawHistory||[]).forEach((w,i)=>{
       if(w.status==="Proses"){
-        let optW = document.createElement('option'); optW.value=u+'_'+i; optW.text=u+" - Rp "+w.amount.toLocaleString('id-ID'); withdrawTransSelect.appendChild(optW);
+        let optW = document.createElement('option');
+        optW.value = u+'_'+i;
+        optW.text = u+" - Rp "+w.amount.toLocaleString('id-ID');
+        withdrawTransSelect.appendChild(optW);
       }
     });
   });
 }
 
 // ===================
-// ACTIONS
+// FUNGSI ADMIN
 // ===================
 function addBalance(){
   let u = userSelect.value;
@@ -145,8 +151,9 @@ function processReload(){
   if(!val){ alert("Pilih transaksi"); return; }
   let [u,i] = val.split("_");
   i = parseInt(i);
-  users[u].reloadHistory[i].status="Sukses";
-  users[u].balance = (users[u].balance||0)+users[u].reloadHistory[i].amount;
+  let tx = users[u].reloadHistory[i];
+  tx.status="Sukses";
+  users[u].balance = (users[u].balance||0)+tx.amount;
   usersRef.child(u).set(users[u]);
   alert("Transaksi isi ulang berhasil diproses!");
 }
@@ -156,15 +163,16 @@ function processWithdraw(){
   if(!val){ alert("Pilih transaksi penarikan"); return; }
   let [u,i] = val.split("_");
   i = parseInt(i);
-  users[u].withdrawHistory[i].status="Sukses";
-  let amount = users[u].withdrawHistory[i].amount;
+  let tx = users[u].withdrawHistory[i];
+  tx.status="Sukses";
+  let amount = tx.amount;
   let investments = users[u].investments || [];
   let remaining = amount;
-  investments.forEach(inv => {
-    let available = inv.profit - inv.claimed;
+  investments.forEach(inv=>{
+    let available = inv.profit - (inv.claimed||0);
     if(available>0 && remaining>0){
       let deduct = Math.min(available, remaining);
-      inv.claimed += deduct;
+      inv.claimed = (inv.claimed||0)+deduct;
       remaining -= deduct;
     }
   });
@@ -176,8 +184,10 @@ function processWithdraw(){
 function deleteAll(){
   if(confirm("Yakin hapus semua transaksi user?")){
     Object.keys(users).forEach(u=>{
-      users[u].reloadHistory=[]; users[u].withdrawHistory=[];
-      users[u].dailyWithdraw={}; users[u].investments=[];
+      users[u].reloadHistory=[];
+      users[u].withdrawHistory=[];
+      users[u].dailyWithdraw={};
+      users[u].investments=[];
       users[u].balance=0;
       usersRef.child(u).set(users[u]);
     });
