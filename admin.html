@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel - Realtime</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;margin:0;padding:0;}
+.container{max-width:700px;margin:20px auto;background:white;padding:25px;border-radius:12px;box-shadow:0 0 15px rgba(0,0,0,0.15);}
+h1,h2{text-align:center;}
+input,button,select{width:100%;padding:12px;margin-bottom:10px;border-radius:8px;border:1px solid #ccc;box-sizing:border-box;}
+button{cursor:pointer;font-weight:bold; transition:0.3s;}
+button:hover{opacity:0.9;}
+.add-btn{background:#4CAF50;color:white;border:none;}
+.block-btn{background:#f44336;color:white;border:none;}
+.process-btn{background:#607D8B;color:white;border:none;}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>Admin Panel Realtime</h1>
+
+<h2>Tambah Saldo User</h2>
+<select id="userSelect"></select>
+<input type="number" id="addAmount" placeholder="Masukkan nominal saldo">
+<button class="add-btn" onclick="addBalance()">Tambah Saldo</button>
+
+<h2>Blokir / Unblokir User</h2>
+<select id="blockUserSelect"></select>
+<button class="block-btn" onclick="toggleBlock()">Blokir / Unblokir</button>
+
+<h2>Hapus Akun User</h2>
+<select id="deleteUserSelect"></select>
+<button class="process-btn" onclick="deleteUser()">Hapus Akun</button>
+
+<h2>Transaksi Isi Ulang</h2>
+<select id="reloadTransSelect"></select>
+<button class="process-btn" onclick="processReload()">Tandai Sukses</button>
+
+<h2>Transaksi Penarikan</h2>
+<select id="withdrawTransSelect"></select>
+<button class="process-btn" onclick="processWithdraw()">Tandai Sukses</button>
+
+<h2>Hapus Semua Transaksi</h2>
+<button class="process-btn" onclick="deleteAll()">Hapus Semua</button>
+</div>
+
+<script>
+// ========== KONFIGURASI FIREBASE ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyDAkDFS1Mp8zAJvXq8P8SkzJnmbZRyHKaY",
+  authDomain: "testingsaja-bb474.firebaseapp.com",
+  databaseURL: "https://testingsaja-bb474-default-rtdb.firebaseio.com",
+  projectId: "testingsaja-bb474",
+  storageBucket: "testingsaja-bb474.appspot.com",
+  messagingSenderId: "1068578641763",
+  appId: "1:1068578641763:web:3832c9485c5092df3b6556",
+  measurementId: "G-PF9N37F8V9"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const usersRef = db.ref('users');
+
+let users = {};
+const userSelect = document.getElementById('userSelect');
+const blockSelect = document.getElementById('blockUserSelect');
+const deleteSelect = document.getElementById('deleteUserSelect');
+const reloadTrans = document.getElementById('reloadTransSelect');
+const withdrawTransSelect = document.getElementById('withdrawTransSelect');
+
+// ambil data user realtime
+usersRef.on('value', snapshot=>{
+  users = snapshot.val() || {};
+  populateUsers();
+});
+
+// render ulang dropdown user
+function populateUsers(){
+  userSelect.innerHTML = "";
+  blockSelect.innerHTML = "";
+  deleteSelect.innerHTML = "";
+  reloadTrans.innerHTML = "";
+  withdrawTransSelect.innerHTML = "";
+  Object.keys(users).forEach(u=>{
+    let opt1 = document.createElement('option'); opt1.value=u; opt1.text=u; userSelect.appendChild(opt1);
+    let opt2 = document.createElement('option'); opt2.value=u; opt2.text=u; blockSelect.appendChild(opt2);
+    let opt3 = document.createElement('option'); opt3.value=u; opt3.text=u; deleteSelect.appendChild(opt3);
+
+    (users[u].reloadHistory||[]).forEach((r,i)=>{
+      if(r.status==="Proses"){
+        let optR = document.createElement('option'); optR.value=u+'_'+i;
+        optR.text=u+" - Rp "+r.amount.toLocaleString('id-ID'); reloadTrans.appendChild(optR);
+      }
+    });
+    (users[u].withdrawHistory||[]).forEach((w,i)=>{
+      if(w.status==="Proses"){
+        let optW = document.createElement('option'); optW.value=u+'_'+i;
+        optW.text=u+" - Rp "+w.amount.toLocaleString('id-ID'); withdrawTransSelect.appendChild(optW);
+      }
+    });
+  });
+}
+
+// Tambah saldo
+function addBalance(){
+  let u = userSelect.value;
+  let amt = parseInt(document.getElementById('addAmount').value);
+  if(!amt || amt<1){ alert("Masukkan nominal valid!"); return; }
+  users[u].balance = (users[u].balance||0)+amt;
+  usersRef.child(u).set(users[u]);
+  alert("Saldo berhasil ditambahkan ke "+u);
+}
+
+// Blokir / Unblokir
+function toggleBlock(){
+  let u = blockSelect.value;
+  users[u].blocked = !users[u].blocked;
+  usersRef.child(u).set(users[u]);
+  alert("Status blokir "+u+" : "+(users[u].blocked?"Terblokir":"Aktif"));
+}
+
+// Hapus akun
+function deleteUser(){
+  let u = deleteSelect.value;
+  if(confirm("Yakin hapus akun "+u+"? Semua data akan hilang.")){
+    usersRef.child(u).remove();
+    alert("Akun "+u+" berhasil dihapus!");
+  }
+}
+
+// Proses isi ulang
+function processReload(){
+  let val = reloadTrans.value;
+  if(!val){ alert("Pilih transaksi"); return; }
+  let [u,i] = val.split("_"); i=parseInt(i);
+  users[u].reloadHistory[i].status="Sukses";
+  users[u].balance = (users[u].balance||0)+users[u].reloadHistory[i].amount;
+  usersRef.child(u).set(users[u]);
+  alert("Transaksi isi ulang berhasil diproses!");
+}
+
+// Proses penarikan
+function processWithdraw(){
+  let val = withdrawTransSelect.value;
+  if(!val){ alert("Pilih transaksi penarikan"); return; }
+  let [u,i] = val.split("_"); i=parseInt(i);
+  users[u].withdrawHistory[i].status="Sukses";
+  let amount = users[u].withdrawHistory[i].amount;
+  let investments = users[u].investments || [];
+  let remaining = amount;
+  investments.forEach(inv => {
+    let available = inv.profit - inv.claimed;
+    if(available>0 && remaining>0){
+      let deduct = Math.min(available, remaining);
+      inv.claimed += deduct;
+      remaining -= deduct;
+    }
+  });
+  users[u].investments = investments;
+  usersRef.child(u).set(users[u]);
+  alert("Penarikan berhasil ditandai sukses!");
+}
+
+// Hapus semua transaksi
+function deleteAll(){
+  if(confirm("Yakin hapus semua transaksi user?")){
+    Object.keys(users).forEach(u=>{
+      users[u].reloadHistory=[]; users[u].withdrawHistory=[];
+      users[u].dailyWithdraw={}; users[u].investments=[];
+      users[u].balance=0;
+      usersRef.child(u).set(users[u]);
+    });
+    alert("Semua transaksi dihapus!");
+  }
+}
+</script>
+</body>
+</html>
