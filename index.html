@@ -49,90 +49,56 @@ const firebaseConfig = {
   appId: "1:1068578641763:web:3832c9485c5092df3b6556",
   measurementId: "G-PF9N37F8V9"
 };
-
-// Inisialisasi Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const usersRef = db.ref('users');
 
 // ===================
-// HELPER FUNCTIONS
+// FUNGSI LOGIN & REGISTER
 // ===================
 function showRegister(){
   document.getElementById('registerContainer').style.display='block';
 }
 
-// ===================
-// REGISTER USER
-// ===================
 function register(){
   let u = document.getElementById('regUsername').value.trim();
   let p = document.getElementById('regPassword').value;
   if(!u || !p){ alert("Isi username dan password!"); return; }
 
-  const userRef = db.ref('users/' + u);
-  userRef.get().then(snapshot => {
-    if(snapshot.exists()){
-      alert("Username sudah terdaftar!");
-    } else {
-      let newUser = {
-        password: p,
-        balance: 0,
-        investments: [],
-        reloadHistory: [],
-        withdrawHistory: [],
-        dailyWithdraw: {},
-        blocked: false
-      };
-      userRef.set(newUser).then(()=>{
-        alert("Pendaftaran berhasil! Silakan login.");
-        document.getElementById('registerContainer').style.display='none';
-      });
-    }
-  });
+  usersRef.child(u).get().then(snapshot => {
+    if(snapshot.exists()){ alert("Username sudah terdaftar!"); return; }
+
+    let newUser = {
+      password: p,
+      balance:0,
+      investments:[],
+      reloadHistory:[],
+      withdrawHistory:[],
+      dailyWithdraw:{},
+      blocked:false
+    };
+    usersRef.child(u).set(newUser);
+    alert("Pendaftaran berhasil! Silakan login.");
+    document.getElementById('registerContainer').style.display='none';
+  }).catch(err => console.error(err));
 }
 
-// ===================
-// LOGIN USER
-// ===================
 function login(){
   let u = document.getElementById('username').value.trim();
   let p = document.getElementById('password').value;
   if(!u || !p){ alert("Lengkapi username dan password!"); return; }
 
-  const userRef = db.ref('users/' + u);
-  userRef.get().then(snapshot => {
-    if(snapshot.exists()){
-      const user = snapshot.val();
-      if(user.password !== p){
-        alert("Password salah!");
-      } else if(user.blocked){
-        alert("Akun Anda diblokir!");
-      } else {
-        localStorage.setItem('currentUser', u);
-        alert("Login berhasil!");
-        // Lanjutkan ke halaman utama atau update UI
-      }
-    } else {
-      alert("Username tidak ditemukan!");
-    }
-  });
-}
+  usersRef.child(u).get().then(snapshot => {
+    if(!snapshot.exists()){ alert("Username tidak ditemukan!"); return; }
+    let user = snapshot.val();
+    if(user.password !== p){ alert("Password salah!"); return; }
+    if(user.blocked){ alert("Akun diblokir!"); return; }
 
-// ===================
-// LISTEN REALTIME CHANGES (optional)
-// ===================
-// Misal untuk saldo / investasi realtime
-let currentUser = localStorage.getItem('currentUser');
-if(currentUser){
-  const currentUserRef = db.ref('users/' + currentUser);
-  currentUserRef.on('value', snapshot => {
-    const user = snapshot.val();
-    if(user){
-      console.log("Realtime update user:", user);
-      // bisa update UI saldo / histori secara langsung
-    }
-  });
+    localStorage.setItem('currentUser', u);
+    window.location.href = "index.html";
+  }).catch(err => console.error(err));
 }
 </script>
+
 </body>
 </html>
