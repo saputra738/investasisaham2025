@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login Simulasi Investasi (Realtime)</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;margin:0;padding:0;}
+.container{max-width:400px;margin:100px auto;background:white;padding:20px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,0.1);}
+input,button{width:100%;padding:10px;margin-bottom:10px;border-radius:5px;border:1px solid #ccc;box-sizing:border-box;}
+button{cursor:pointer;font-weight:bold;background:#1E88E5;color:white;border:none;}
+h2{text-align:center;}
+a{color:#1E88E5;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>Login</h2>
+<input type="text" id="username" placeholder="Username">
+<input type="password" id="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<p>Belum punya akun? <a onclick="showRegister()">Daftar</a></p>
+
+<div id="registerContainer" style="display:none;">
+<h2>Daftar</h2>
+<input type="text" id="regUsername" placeholder="Username">
+<input type="password" id="regPassword" placeholder="Password">
+<button onclick="register()">Daftar</button>
+</div>
+</div>
+
+<script>
+// ===================
+// KONFIGURASI FIREBASE
+// ===================
+const firebaseConfig = {
+  apiKey: "AIzaSyDAkDFS1Mp8zAJvXq8P8SkzJnmbZRyHKaY",
+  authDomain: "testingsaja-bb474.firebaseapp.com",
+  databaseURL: "https://testingsaja-bb474-default-rtdb.firebaseio.com",
+  projectId: "testingsaja-bb474",
+  storageBucket: "testingsaja-bb474.appspot.com",
+  messagingSenderId: "1068578641763",
+  appId: "1:1068578641763:web:3832c9485c5092df3b6556",
+  measurementId: "G-PF9N37F8V9"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const usersRef = db.ref('users');
+
+// ===================
+// FUNGSIONALITAS LOGIN / REGISTER
+// ===================
+function showRegister(){
+  document.getElementById('registerContainer').style.display='block';
+}
+
+// REGISTER
+function register(){
+  let u = document.getElementById('regUsername').value.trim();
+  let p = document.getElementById('regPassword').value;
+  if(!u || !p){ alert("Isi username dan password!"); return; }
+
+  usersRef.child(u).get().then(snapshot=>{
+    if(snapshot.exists()){
+      alert("Username sudah terdaftar!");
+    } else {
+      let newUser = {
+        password: p,
+        balance:0,
+        investments:[],
+        reloadHistory:[],
+        withdrawHistory:[],
+        dailyWithdraw:{},
+        blocked:false
+      };
+      usersRef.child(u).set(newUser);
+      alert("Pendaftaran berhasil! Silakan login.");
+      document.getElementById('registerContainer').style.display='none';
+      document.getElementById('regUsername').value='';
+      document.getElementById('regPassword').value='';
+    }
+  });
+}
+
+// LOGIN
+function login(){
+  let u = document.getElementById('username').value.trim();
+  let p = document.getElementById('password').value;
+  if(!u || !p){ alert("Lengkapi username dan password!"); return; }
+
+  usersRef.child(u).get().then(snapshot=>{
+    if(!snapshot.exists()){
+      alert("Username tidak ditemukan!");
+      return;
+    }
+    let user = snapshot.val();
+    if(user.password !== p){
+      alert("Password salah!");
+      return;
+    }
+    if(user.blocked){
+      alert("Akun Anda diblokir!");
+      return;
+    }
+    localStorage.setItem('currentUser', u);
+    window.location.href="index.html";
+  });
+}
+</script>
+
+</body>
+</html>
